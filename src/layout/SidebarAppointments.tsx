@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import VideoCallModal from "../components/VideoCall/VideoCallModal";
+import { useAuth } from "../components/auth/useAuth";
 
 type Doctor = {
   id: string;
@@ -27,6 +29,9 @@ type Appointment = {
   doctor_last_name?: string;
   doctor_specialization?: string;
   doctorName?: string;
+  // Patient details if needed
+  patient_first_name?: string;
+  patient_last_name?: string;
 };
 
 export default function SidebarAppointments({
@@ -40,12 +45,16 @@ export default function SidebarAppointments({
   showTable?: boolean;
   inlineForm?: boolean;
 }) {
+  const { user } = useAuth(); // Get current user context
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
-  // loadingAppointments state removed (not used visually)
   const [submitting, setSubmitting] = useState(false);
+
+  // Video Call State
+  const [videoCallOpen, setVideoCallOpen] = useState(false);
+  const [callTarget, setCallTarget] = useState<{ id: string; name: string } | undefined>(undefined);
 
   useEffect(() => {
     const fetchDoctors = async () => {
@@ -65,6 +74,9 @@ export default function SidebarAppointments({
     const fetchAppointments = async () => {
       try {
         const token = localStorage.getItem("token");
+        // Determine endpoint based on role? Assuming patient for now as per original code
+        // But if doctor logs in, we might need doctor appointments
+        // For now, sticking to patient appointments endpoint which seems to be what was there
         const res = await fetch("http://localhost:3000/api/patients/appointments", {
           headers: {
             ...(token ? { "Authorization": `Bearer ${token}` } : {}),
@@ -117,7 +129,7 @@ export default function SidebarAppointments({
       const token = localStorage.getItem("token");
       const res = await fetch("http://localhost:3000/api/appointments/createAppointment", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           ...(token ? { "Authorization": `Bearer ${token}` } : {}),
         },
@@ -132,7 +144,7 @@ export default function SidebarAppointments({
       closeForm();
       setForm({ doctorId: "", appointmentDate: "", appointmentTime: "", appointmentType: "video", reason: "" });
       alert("Appointment created successfully");
-      
+
       // Refresh appointments list
       const token2 = localStorage.getItem("token");
       const res2 = await fetch("http://localhost:3000/api/patients/appointments", {
@@ -151,6 +163,38 @@ export default function SidebarAppointments({
     }
   };
 
+  const initiateCall = (appointment: Appointment) => {
+    // Determine target user
+    // If I am patient, call doctor
+    // If I am doctor, call patient (requires patient info in appointment) but current fetch is patient-centric?
+    // Assuming 'user' object has 'role'
+
+    let targetId = "";
+    let targetName = "";
+
+    // Logic: In original code, it fetches /api/patients/appointments, so currentUser is likely Patient
+    // So target is Doctor
+    if (appointment.doctor_id || appointment.doctorId) {
+      targetId = appointment.doctor_id || appointment.doctorId || "";
+      targetName = appointment.doctor_first_name
+        ? `${appointment.doctor_first_name} ${appointment.doctor_last_name || ""}`
+        : appointment.doctorName || "Doctor";
+    }
+
+    // If user is doctor (we need robust role check, assuming simplified for now)
+    if (user?.role === 'doctor' && appointment.patient_id) {
+      targetId = appointment.patient_id;
+      targetName = `${appointment.patient_first_name || "Patient"} ${appointment.patient_last_name || ""}`;
+    }
+
+    if (targetId) {
+      setCallTarget({ id: targetId, name: targetName });
+      setVideoCallOpen(true);
+    } else {
+      alert("Could not call: Target user details missing");
+    }
+  };
+
   return (
     <div className="px-2 py-4 border-t border-gray-100 dark:border-gray-800">
       <div className="flex items-center justify-between mb-3">
@@ -165,7 +209,7 @@ export default function SidebarAppointments({
         ) : null}
       </div>
 
-      {/* Inline form (used on the full Appointments page) */}
+      {/* Inline form */}
       {showForm && inlineForm ? (
         <div className="mb-4">
           <form onSubmit={(e) => handleSubmit(e)} className="space-y-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
@@ -228,6 +272,7 @@ export default function SidebarAppointments({
                   <th className="pb-2">Time</th>
                   <th className="pb-2">Doctor</th>
                   <th className="pb-2">Status</th>
+                  <th className="pb-2">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -242,6 +287,14 @@ export default function SidebarAppointments({
                       <td className="py-2 text-theme-sm">{time}</td>
                       <td className="py-2 text-theme-sm">{doctor}</td>
                       <td className="py-2 text-theme-sm">{status}</td>
+                      <td className="py-2 text-theme-sm">
+                        <button
+                          className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 flex items-center gap-1"
+                          onClick={() => initiateCall(a)}
+                        >
+                          <span>📹</span> Call
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -308,6 +361,14 @@ export default function SidebarAppointments({
           </div>
         </div>
       )}
+
+      {/* Video Call Modal */}
+      <VideoCallModal
+        isOpen={videoCallOpen}
+        onClose={() => setVideoCallOpen(false)}
+        localUser={user ? { id: user.id || "unknown", name: user.name || user.email || "User" } : { id: "guest", name: "Guest" }}
+        targetUser={callTarget}
+      />
     </div>
   );
 }

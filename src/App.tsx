@@ -20,6 +20,7 @@ import AppLayout from "./layout/AppLayout";
 import RequireAuth from "./components/auth/RequireAuth";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
+import VideoCall from "./components/VideoCall/VideoCall";
 
 export default function App() {
   return (
@@ -54,6 +55,9 @@ export default function App() {
             {/* Charts */}
             <Route path="line-chart" element={<LineChart />} />
             <Route path="bar-chart" element={<BarChart />} />
+
+            {/* Video Call */}
+            <Route path="video-call" element={<VideoCall />} />
           </Route>
 
           {/* Auth Layout */}
