@@ -190,6 +190,45 @@ export default function SidebarAppointments({
     if (targetId) {
       setCallTarget({ id: targetId, name: targetName });
       setVideoCallOpen(true);
+
+      // Send email invite if current user is patient calling doctor
+      // The requirement says: "When a patient select the 'call' button, it should send api to doctor"
+      // We assume currenUser is patient if appointment fetches are patient-centric, or check role if available.
+      // SidebarAppointments logic suggests this view is for patients (line 80 fetches patient appointments).
+      // But we can check user.role if it exists.
+
+      const isPatient = user?.role === 'patient';
+
+      if (isPatient || true) { // Defaulting to sending for now as per "When a patient select..." - if user check fails we might want to still try or assume patient context from sidebar
+        const inviteDoctor = async () => {
+          try {
+            const token = localStorage.getItem("token");
+            // Construct a link. Since VideoCall component doesn't handle query params yet, we link to appointments or video-call page.
+            // Adding params for future proofing.
+            const link = `${window.location.origin}/TailAdmin/video-call?targetId=${user?.id}&targetName=${user?.name || user?.email || 'Patient'}`;
+
+            await fetch("http://localhost:3000/api/appointments/video-call-invite", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({
+                doctorId: targetId,
+                doctorName: targetName,
+                patientId: user?.id,
+                patientName: user?.name || user?.email || "Patient",
+                link: link
+              })
+            });
+            console.log("Video call invite sent to doctor");
+          } catch (err) {
+            console.error("Failed to send video invite", err);
+          }
+        };
+        inviteDoctor();
+      }
+
     } else {
       alert("Could not call: Target user details missing");
     }

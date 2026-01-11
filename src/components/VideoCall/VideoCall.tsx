@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '../auth/useAuth';
 import './VideoCall.css';
 
 // Socket.IO server URL - adjust if backend runs on a different port
@@ -24,16 +26,30 @@ interface VideoCallProps {
 }
 
 const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, onClose }) => {
+    const [searchParams] = useSearchParams();
+    const { user } = useAuth();
+
+    // Derived state from props or URL or auth
+    // If localUser not provided prop, use auth user
+    const effectiveLocalUser = localUser || (user ? { id: user.id || 'unknown', name: user.name || user.email || 'User' } : undefined);
+
     // State
-    const [username, setUsername] = useState(localUser?.name || '');
+    const [username, setUsername] = useState(effectiveLocalUser?.name || '');
     const [isRegistered, setIsRegistered] = useState(false);
     const [onlineUsers, setOnlineUsers] = useState<User[]>([]);
     const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
     const [callStatus, setCallStatus] = useState<string>('Disconnected');
+    const [isSocketConnected, setIsSocketConnected] = useState(false);
     const [isAudioEnabled, setIsAudioEnabled] = useState(true);
     const [isVideoEnabled, setIsVideoEnabled] = useState(true);
     const [mySocketId, setMySocketId] = useState<string>('');
     const [remoteUsername, setRemoteUsername] = useState<string>('Remote User');
+
+    // Check for target in URL
+    const urlTargetId = searchParams.get('targetId');
+    const urlTargetName = searchParams.get('targetName');
+
+    const effectiveTargetUser = targetUser || (urlTargetId ? { id: urlTargetId, name: urlTargetName || 'Unknown' } : undefined);
 
     // Refs
     const socketRef = useRef<Socket | null>(null);
@@ -53,14 +69,11 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
     useEffect(() => {
         // Initialize socket connection
         socketRef.current = io(SOCKET_URL);
-
         const socket = socketRef.current;
 
         socket.on('connect', () => {
             setCallStatus('Connected to Server');
-            if (localUser) {
-                registerUser(localUser.name, localUser.id);
-            }
+            setIsSocketConnected(true);
         });
 
         socket.on('disconnect', () => {
@@ -73,16 +86,10 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
 
         socket.on('user-joined', (data: { userId: string; username: string; users: User[] }) => {
             setOnlineUsers(data.users);
-            // Auto call if target user just joined and we are waiting
         });
 
         socket.on('user-left', (data: { userId: string; users: User[] }) => {
             setOnlineUsers(data.users);
-            // If the connected user left, close connection
-            if (peerConnectionRef.current && peerConnectionRef.current.connectionState !== 'closed') { // Simplified check
-                // We might want to check if the specific user who left was the one we were talking to
-                // But for now, we leave it to the connection state change handler or manual hangup
-            }
         });
 
         socket.on('offer', (data: IncomingCall) => {
@@ -124,19 +131,27 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
         };
     }, []); // Run once on mount
 
+    // Register user effect - separate to handle async user loading
+    useEffect(() => {
+        if (effectiveLocalUser && isSocketConnected && !isRegistered) {
+            registerUser(effectiveLocalUser.name, effectiveLocalUser.id);
+        }
+    }, [effectiveLocalUser, isRegistered, isSocketConnected]);
+
+
     // Auto-call effect
     useEffect(() => {
-        if (isRegistered && targetUser && onlineUsers.length > 0) {
+        if (isRegistered && effectiveTargetUser && onlineUsers.length > 0) {
             // Find target user in online list (by userId if available, or name?)
             // The backend storage uses socket ID as key but stores userId.
             // onlineUsers comes from values(users), so it has {id(socket), userId, username}
-            const target = onlineUsers.find(u => (u as any).userId === targetUser.id || u.username === targetUser.name);
+            const target = onlineUsers.find(u => (u as any).userId === effectiveTargetUser.id || u.username === effectiveTargetUser.name);
             if (target) {
                 // Check if already calling?
                 // startCall(target.id, target.username); // This might trigger too often
             }
         }
-    }, [isRegistered, targetUser, onlineUsers]);
+    }, [isRegistered, effectiveTargetUser, onlineUsers]);
 
     const getMediaStream = async () => {
         try {
@@ -302,14 +317,14 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
 
     // Helper to find target user from online list
     const findTargetUser = () => {
-        if (!targetUser) return null;
+        if (!effectiveTargetUser) return null;
         // Search by userId first, then username
-        return onlineUsers.find(u => (u as any).userId === targetUser.id || u.username === targetUser.name);
+        return onlineUsers.find(u => (u as any).userId === effectiveTargetUser.id || u.username === effectiveTargetUser.name);
     };
 
     return (
         <div className={`video-call-container ${isModal ? 'h-full rounded-none' : ''}`}>
-            {!isRegistered && !localUser ? (
+            {!isRegistered && !effectiveLocalUser ? (
                 <div className="setup-section">
                     <h2>Join Video Call</h2>
                     <input
@@ -325,9 +340,9 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
                     <div className="status-bar">
                         <span>Status: {callStatus}</span>
                         <span>Logged in as: <strong>{username}</strong></span>
-                        {targetUser && (
+                        {effectiveTargetUser && (
                             <span className="ml-4">
-                                Target: <strong>{targetUser.name}</strong>
+                                Target: <strong>{effectiveTargetUser.name}</strong>
                                 {findTargetUser() ? ' (Online)' : ' (Offline)'}
                             </span>
                         )}
