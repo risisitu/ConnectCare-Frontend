@@ -1,39 +1,40 @@
-import EcommerceMetrics from "../../components/ecommerce/EcommerceMetrics";
-import MonthlySalesChart from "../../components/ecommerce/MonthlySalesChart";
-import StatisticsChart from "../../components/ecommerce/StatisticsChart";
 import MonthlyTarget from "../../components/ecommerce/MonthlyTarget";
-import DemographicCard from "../../components/ecommerce/DemographicCard";
 import PageMeta from "../../components/common/PageMeta";
 import DashboardAppointmentsTable from "../../components/Appointments/DashboardAppointmentsTable";
+// New components
+import TotalConsultations from "../../components/dashboard/TotalConsultations";
+import KeyMetrics from "../../components/dashboard/KeyMetrics";
+import TimeSaved from "../../components/dashboard/TimeSaved";
 
 export default function Home() {
   return (
     <>
       <PageMeta
-        title="React.js Ecommerce Dashboard | TailAdmin - React.js Admin Dashboard Template"
-        description="This is React.js Ecommerce Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
+        title="Doctor Dashboard | ConnectCare"
+        description="Doctor Dashboard for ConnectCare"
       />
-      <div className="grid grid-cols-12 gap-4 md:gap-6">
-        <div className="col-span-12 space-y-6 xl:col-span-7">
-          <EcommerceMetrics />
+      <div className="space-y-6">
+        {/* Key Metrics Row */}
+        <KeyMetrics />
 
-          <MonthlySalesChart />
-        </div>
+        <div className="grid grid-cols-12 gap-4 md:gap-6">
+          {/* Main Content Column */}
+          <div className="col-span-12 xl:col-span-8 space-y-6">
+            {/* Total Consultations & Other Stats */}
+            <TotalConsultations />
 
-        <div className="col-span-12 xl:col-span-5">
-          <MonthlyTarget />
-        </div>
+            {/* Appointments Table */}
+            <DashboardAppointmentsTable />
+          </div>
 
-        <div className="col-span-12">
-          <StatisticsChart />
-        </div>
+          {/* Sidebar Column */}
+          <div className="col-span-12 xl:col-span-4 space-y-6">
+            {/* Patient Demographics */}
+            <MonthlyTarget />
 
-        <div className="col-span-12 xl:col-span-5">
-          <DemographicCard />
-        </div>
-
-        <div className="col-span-12 xl:col-span-7">
-          <DashboardAppointmentsTable />
+            {/* Time Saved Widget */}
+            <TimeSaved />
+          </div>
         </div>
       </div>
     </>
