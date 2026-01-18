@@ -36,6 +36,7 @@ export default function ProfessionalInfoCard() {
       phoneNumber,
       specialization,
       clinicAddress,
+      experienceYears: experienceYears === "" ? null : Number(experienceYears),
       profileImage: (profile as any).profile_image || "",
     };
     const res = await updateProfile(payload);
@@ -60,25 +61,7 @@ export default function ProfessionalInfoCard() {
           <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-6">Professional Information</h4>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
-            <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">First Name</p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">{profile.first_name}</p>
-            </div>
 
-            <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Last Name</p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">{profile.last_name}</p>
-            </div>
-
-            <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Email address</p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">{profile.email}</p>
-            </div>
-
-            <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Phone</p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">{profile.phone_number}</p>
-            </div>
 
             <div>
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Specialization</p>
@@ -112,25 +95,7 @@ export default function ProfessionalInfoCard() {
             <div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
               <div>
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>First Name</Label>
-                    <Input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} disabled />
-                  </div>
 
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Last Name</Label>
-                    <Input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} disabled />
-                  </div>
-
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Email Address</Label>
-                    <Input type="text" value={profile.email} disabled />
-                  </div>
-
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Phone</Label>
-                    <Input type="text" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />
-                  </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Specialization</Label>

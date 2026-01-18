@@ -142,11 +142,11 @@ export default function UserInfoCard() {
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                   <div className="col-span-2 lg:col-span-1">
                     <Label>First Name</Label>
-                    <Input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} disabled />
+                    <Input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
                   </div>
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Last Name</Label>
-                    <Input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} disabled />
+                    <Input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} />
                   </div>
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Email Address</Label>
@@ -168,7 +168,7 @@ export default function UserInfoCard() {
                       </div>
                       <div className="col-span-2 lg:col-span-1">
                         <Label>Date of Birth</Label>
-                        <Input type="date" value={dateOfBirth ? new Date(dateOfBirth).toISOString().slice(0,10) : ""} onChange={(e) => setDateOfBirth(e.target.value)} disabled />
+                        <Input type="date" value={dateOfBirth ? new Date(dateOfBirth).toISOString().slice(0, 10) : ""} onChange={(e) => setDateOfBirth(e.target.value)} disabled />
                       </div>
                       <div className="col-span-2">
                         <Label>Allergies</Label>
