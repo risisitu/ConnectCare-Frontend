@@ -4,8 +4,15 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import './VideoCall.css';
 
+// Type definition for Web Speech API
+interface IWindow extends Window {
+    webkitSpeechRecognition: any;
+    SpeechRecognition: any;
+}
+
+
 // Socket.IO server URL - adjust if backend runs on a different port
-const SOCKET_URL = 'http://localhost:3000';
+const SOCKET_URL = import.meta.env.VITE_API_URL;
 
 interface User {
     id: string;
@@ -23,9 +30,19 @@ interface VideoCallProps {
     localUser?: { id: string; name: string };
     targetUser?: { id: string; name: string };
     onClose?: () => void;
+    appointmentId?: string; // Add appointmentId prop
 }
 
-const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, onClose }) => {
+interface Message {
+    id: string;
+    senderId: string;
+    senderName: string;
+    content: string;
+    createdAt?: string;
+}
+
+
+const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, onClose, appointmentId }) => {
     const [searchParams] = useSearchParams();
     const { user } = useAuth();
 
@@ -45,11 +62,32 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
     const [mySocketId, setMySocketId] = useState<string>('');
     const [remoteUsername, setRemoteUsername] = useState<string>('Remote User');
 
-    // Check for target in URL
+    // Chat State
+    const [isChatOpen, setIsChatOpen] = useState(false);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [newMessage, setNewMessage] = useState('');
+
+    // Check for target and appointment in URL
     const urlTargetId = searchParams.get('targetId');
-    const urlTargetName = searchParams.get('targetName');
+
+    const urlTargetName = searchParams.get('targetName'); // Keeping one declaration
+    const urlAppointmentId = searchParams.get('appointmentId');
+    const effectiveAppointmentId = appointmentId || urlAppointmentId;
+
+    // STT State & Refs
+    const [isSttEnabled, setIsSttEnabled] = useState(false);
+    const isSttEnabledRef = useRef(false); // Ref to track enabled state in callbacks
+    const transcriptBufferRef = useRef<string>('');
+    const recognitionRef = useRef<any>(null);
+
+    // Sync ref
+    useEffect(() => {
+        isSttEnabledRef.current = isSttEnabled;
+    }, [isSttEnabled]);
+
 
     const effectiveTargetUser = targetUser || (urlTargetId ? { id: urlTargetId, name: urlTargetName || 'Unknown' } : undefined);
+
 
     // Refs
     const socketRef = useRef<Socket | null>(null);
@@ -121,7 +159,13 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
             cleanupCall();
         });
 
+        // Chat listener
+        socket.on('receive-message', (message: Message) => {
+            setMessages(prev => [...prev, message]);
+        });
+
         return () => {
+
             if (localStreamRef.current) {
                 localStreamRef.current.getTracks().forEach(track => track.stop());
             }
@@ -136,11 +180,141 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
         if (effectiveLocalUser && isSocketConnected && !isRegistered) {
             registerUser(effectiveLocalUser.name, effectiveLocalUser.id);
         }
-    }, [effectiveLocalUser, isRegistered, isSocketConnected]);
 
+        // Join appointment room if available
+        if (isSocketConnected && effectiveAppointmentId && socketRef.current) {
+            socketRef.current.emit('join-appointment', effectiveAppointmentId);
+            fetchMessages();
+        }
+    }, [effectiveLocalUser, isRegistered, isSocketConnected, effectiveAppointmentId]);
+
+    const fetchMessages = async () => {
+        if (!effectiveAppointmentId) return;
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/messages/${effectiveAppointmentId}`);
+            if (response.ok) {
+                const history = await response.json();
+                // Map backend fields to frontend interface if needed (backend snake_case vs camelCase?)
+                // Backend: id, appointment_id, sender_id, sender_name, content, created_at
+                // Frontend: id, senderId, senderName, content
+                const formattedMessages = history.map((m: any) => ({
+                    id: m.id,
+                    senderId: m.sender_id,
+                    senderName: m.sender_name,
+                    content: m.content,
+                    createdAt: m.created_at
+                }));
+                setMessages(formattedMessages);
+            }
+        } catch (error) {
+            console.error('Failed to fetch messages', error);
+        }
+    };
+
+
+
+
+
+    // Speech to Text Logic
+    useEffect(() => {
+        const { webkitSpeechRecognition, SpeechRecognition } = window as unknown as IWindow;
+        const SpeechRecognitionConstructor = SpeechRecognition || webkitSpeechRecognition;
+
+        if (SpeechRecognitionConstructor) {
+            const recognition = new SpeechRecognitionConstructor();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = (event: any) => {
+                let finalTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript + ' ';
+                    }
+                }
+                if (finalTranscript) {
+                    transcriptBufferRef.current += finalTranscript;
+                    console.log('Transcript buffered:', finalTranscript);
+                }
+            };
+
+            recognition.onerror = (event: any) => {
+                console.error('Speech recognition error', event.error);
+                if (event.error === 'not-allowed') {
+                    setIsSttEnabled(false);
+                    alert("Microphone access blocked for Speech Recognition.");
+                }
+            };
+
+            recognition.onend = () => {
+                // Restart if enabled (check Ref for current state)
+                if (isSttEnabledRef.current && recognitionRef.current) {
+                    console.log("Recognition ended, restarting...");
+                    try {
+                        recognitionRef.current.start();
+                    } catch (e) { console.warn("Failed to restart recognition", e); }
+                }
+            };
+
+            recognitionRef.current = recognition;
+        }
+
+        return () => {
+            if (recognitionRef.current) {
+                try {
+                    recognitionRef.current.stop();
+                } catch (e) { }
+            }
+        };
+    }, []);
+
+    // Toggle STT
+    useEffect(() => {
+        if (recognitionRef.current) {
+            if (isSttEnabled) {
+                try {
+                    recognitionRef.current.start();
+                    console.log("STT Started");
+                } catch (e) { console.warn("STT START error (already started?)", e); }
+            } else {
+                try {
+                    recognitionRef.current.stop();
+                    console.log("STT Stopped manually");
+                } catch (e) { }
+            }
+        }
+    }, [isSttEnabled]);
+
+    // Interval to send buffered transcript
+    useEffect(() => {
+        const interval = setInterval(() => {
+            // Check ref.current or state isSttEnabled (state is fine here as it's a dependency)
+            if (isSttEnabled && effectiveAppointmentId && transcriptBufferRef.current.trim().length > 0) {
+                const textToSend = `[Auto-Transcript]: ${transcriptBufferRef.current}`;
+
+                // Send
+                if (socketRef.current) {
+                    const msgData = {
+                        appointmentId: effectiveAppointmentId,
+                        senderId: effectiveLocalUser?.id,
+                        senderName: effectiveLocalUser?.name,
+                        content: textToSend
+                    };
+                    socketRef.current.emit('send-message', msgData);
+                }
+
+                // Clear buffer
+                transcriptBufferRef.current = '';
+            }
+        }, 10000); // 10 seconds
+
+        return () => clearInterval(interval);
+    }, [isSttEnabled, effectiveAppointmentId, effectiveLocalUser]);
 
     // Auto-call effect
     useEffect(() => {
+
         if (isRegistered && effectiveTargetUser && onlineUsers.length > 0) {
             // Find target user in online list (by userId if available, or name?)
             // The backend storage uses socket ID as key but stores userId.
@@ -315,12 +489,26 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
         }
     };
 
-    // Helper to find target user from online list
     const findTargetUser = () => {
         if (!effectiveTargetUser) return null;
         // Search by userId first, then username
         return onlineUsers.find(u => (u as any).userId === effectiveTargetUser.id || u.username === effectiveTargetUser.name);
     };
+
+    const sendMessage = () => {
+        if (!newMessage.trim() || !socketRef.current || !effectiveAppointmentId) return;
+
+        const msgData = {
+            appointmentId: effectiveAppointmentId,
+            senderId: effectiveLocalUser?.id,
+            senderName: effectiveLocalUser?.name,
+            content: newMessage
+        };
+
+        socketRef.current.emit('send-message', msgData);
+        setNewMessage('');
+    };
+
 
     return (
         <div className={`video-call-container ${isModal ? 'h-full rounded-none' : ''}`}>
@@ -360,22 +548,54 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
                             </div>
                         </div>
 
-                        <div className="sidebar">
-                            <div className="sidebar-header">Online Users</div>
-                            <div className="users-list">
-                                {onlineUsers.filter(u => u.id !== mySocketId).map(user => (
-                                    <div key={user.id} className="user-item">
-                                        <div className="flex flex-col">
-                                            <span>{user.username}</span>
-                                            {(user as any).userId && <span className="text-xs text-gray-500">{(user as any).userId}</span>}
+                        {/* Sidebar: Toggle between Users list and Chat */}
+                        {!isChatOpen ? (
+                            <div className="sidebar">
+                                <div className="sidebar-header">
+                                    <span>Online Users</span>
+                                    {effectiveAppointmentId && <button onClick={() => setIsChatOpen(true)} className="text-sm text-blue-500">Chat &rarr;</button>}
+                                </div>
+                                <div className="users-list">
+                                    {onlineUsers.filter(u => u.id !== mySocketId).map(user => (
+                                        <div key={user.id} className="user-item">
+                                            <div className="flex flex-col">
+                                                <span>{user.username}</span>
+                                                {(user as any).userId && <span className="text-xs text-gray-500">{(user as any).userId}</span>}
+                                            </div>
+                                            <button className="call-btn" onClick={() => startCall(user.id, user.username)}>Call</button>
                                         </div>
-                                        <button className="call-btn" onClick={() => startCall(user.id, user.username)}>Call</button>
-                                    </div>
-                                ))}
-                                {onlineUsers.length <= 1 && <div style={{ padding: '1rem', color: '#666' }}>No other users online</div>}
+                                    ))}
+                                    {onlineUsers.length <= 1 && <div style={{ padding: '1rem', color: '#666' }}>No other users online</div>}
+                                </div>
                             </div>
-                        </div>
+                        ) : (
+                            <div className="chat-sidebar">
+                                <div className="chat-header">
+                                    <span>Chat</span>
+                                    <button onClick={() => setIsChatOpen(false)} className="text-sm text-gray-500">&larr; Users</button>
+                                </div>
+                                <div className="chat-messages">
+                                    {messages.map((msg, idx) => (
+                                        <div key={msg.id || idx} className={`message ${msg.senderId === effectiveLocalUser?.id ? 'sent' : 'received'}`}>
+                                            <span className="message-sender">{msg.senderName}</span>
+                                            {msg.content}
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="chat-input-area">
+                                    <input
+                                        type="text"
+                                        value={newMessage}
+                                        onChange={(e) => setNewMessage(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                                        placeholder="Type a message..."
+                                    />
+                                    <button className="chat-send-btn" onClick={sendMessage}>Send</button>
+                                </div>
+                            </div>
+                        )}
                     </div>
+
 
                     <div className="controls-bar">
                         <button
@@ -399,6 +619,26 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
                         >
                             📞
                         </button>
+                        {effectiveAppointmentId && (
+                            <button
+                                className={`control-btn ${isChatOpen ? 'active' : ''}`}
+                                onClick={() => setIsChatOpen(!isChatOpen)}
+                                title="Toggle Chat"
+                            >
+                                💬
+                            </button>
+                        )}
+
+                        <button
+                            className={`control-btn ${isSttEnabled ? 'active' : ''}`}
+                            onClick={() => setIsSttEnabled(!isSttEnabled)}
+                            title={isSttEnabled ? "Disable Live Transcription" : "Enable Live Transcription"}
+                            style={{ position: 'relative' }}
+                        >
+                            🎙️
+                            {isSttEnabled && <span style={{ position: 'absolute', top: 0, right: 0, fontSize: '0.6rem', background: 'red', borderRadius: '50%', width: '8px', height: '8px' }}></span>}
+                        </button>
+
                     </div>
                 </div>
             )}

@@ -66,22 +66,20 @@ export default function SignUpForm() {
                 <button
                   type="button"
                   onClick={() => setRole("patient")}
-                  className={`px-3 py-1 text-sm rounded-md transition ${
-                    role === "patient"
+                  className={`px-3 py-1 text-sm rounded-md transition ${role === "patient"
                       ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white/90 shadow"
                       : "text-gray-600 dark:text-gray-400"
-                  }`}
+                    }`}
                 >
                   Patient
                 </button>
                 <button
                   type="button"
                   onClick={() => setRole("doctor")}
-                  className={`px-3 py-1 text-sm rounded-md transition ${
-                    role === "doctor"
+                  className={`px-3 py-1 text-sm rounded-md transition ${role === "doctor"
                       ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white/90 shadow"
                       : "text-gray-600 dark:text-gray-400"
-                  }`}
+                    }`}
                 >
                   Doctor
                 </button>
@@ -100,7 +98,7 @@ export default function SignUpForm() {
 
               setLoading(true);
               try {
-                let url = "http://localhost:3000/api/patients/signup";
+                let url = `${import.meta.env.VITE_API_URL}/api/patients/signup`;
                 const payload: any = {
                   email,
                   password,
@@ -111,7 +109,7 @@ export default function SignUpForm() {
                 };
 
                 if (role === "doctor") {
-                  url = "http://localhost:3000/api/doctors/signup";
+                  url = `${import.meta.env.VITE_API_URL}/api/doctors/signup`;
                   Object.assign(payload, {
                     specialization,
                     licenseNumber,

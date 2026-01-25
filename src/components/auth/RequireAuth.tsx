@@ -33,9 +33,9 @@ export default function RequireAuth({ children }: Props) {
       }
 
       const user: StoredUser = JSON.parse(userStr);
-      
+
       // Call verify-token API
-      const response = await fetch("http://localhost:3000/api/verify-token", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/verify-token`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

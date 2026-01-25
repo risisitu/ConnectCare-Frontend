@@ -55,12 +55,14 @@ export default function SidebarAppointments({
   // Video Call State
   const [videoCallOpen, setVideoCallOpen] = useState(false);
   const [callTarget, setCallTarget] = useState<{ id: string; name: string } | undefined>(undefined);
+  const [callAppointmentId, setCallAppointmentId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
+
     const fetchDoctors = async () => {
       setLoadingDoctors(true);
       try {
-        const res = await fetch("http://localhost:3000/api/doctors/getallDoctors");
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/doctors/getallDoctors`);
         if (!res.ok) throw new Error("Failed to fetch doctors");
         const data = await res.json();
         setDoctors(Array.isArray(data.data) ? data.data : []);
@@ -77,7 +79,7 @@ export default function SidebarAppointments({
         // Determine endpoint based on role? Assuming patient for now as per original code
         // But if doctor logs in, we might need doctor appointments
         // For now, sticking to patient appointments endpoint which seems to be what was there
-        const res = await fetch("http://localhost:3000/api/patients/appointments", {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/patients/appointments`, {
           headers: {
             ...(token ? { "Authorization": `Bearer ${token}` } : {}),
           },
@@ -127,7 +129,7 @@ export default function SidebarAppointments({
       };
 
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:3000/api/appointments/createAppointment", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/appointments/createAppointment`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -147,7 +149,7 @@ export default function SidebarAppointments({
 
       // Refresh appointments list
       const token2 = localStorage.getItem("token");
-      const res2 = await fetch("http://localhost:3000/api/patients/appointments", {
+      const res2 = await fetch(`${import.meta.env.VITE_API_URL}/api/patients/appointments`, {
         headers: {
           ...(token2 ? { "Authorization": `Bearer ${token2}` } : {}),
         },
@@ -189,7 +191,9 @@ export default function SidebarAppointments({
 
     if (targetId) {
       setCallTarget({ id: targetId, name: targetName });
+      setCallAppointmentId(appointment.id);
       setVideoCallOpen(true);
+
 
       // Send email invite if current user is patient calling doctor
       // The requirement says: "When a patient select the 'call' button, it should send api to doctor"
@@ -205,9 +209,10 @@ export default function SidebarAppointments({
             const token = localStorage.getItem("token");
             // Construct a link. Since VideoCall component doesn't handle query params yet, we link to appointments or video-call page.
             // Adding params for future proofing.
-            const link = `${window.location.origin}/TailAdmin/video-call?targetId=${user?.id}&targetName=${user?.name || user?.email || 'Patient'}`;
+            const link = `${window.location.origin}/TailAdmin/video-call?targetId=${user?.id}&targetName=${user?.name || user?.email || 'Patient'}&appointmentId=${appointment.id}`;
 
-            await fetch("http://localhost:3000/api/appointments/video-call-invite", {
+
+            await fetch(`${import.meta.env.VITE_API_URL}/api/appointments/video-call-invite`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -407,7 +412,9 @@ export default function SidebarAppointments({
         onClose={() => setVideoCallOpen(false)}
         localUser={user ? { id: user.id || "unknown", name: user.name || user.email || "User" } : { id: "guest", name: "Guest" }}
         targetUser={callTarget}
+        appointmentId={callAppointmentId}
       />
+
     </div>
   );
 }

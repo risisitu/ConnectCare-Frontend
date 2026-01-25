@@ -44,7 +44,7 @@ export default function MonthlyTarget() {
           return;
         }
 
-        const response = await fetch("http://localhost:3000/api/doctors/patients", {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/doctors/patients`, {
           headers: {
             "Authorization": `Bearer ${token}`
           }

@@ -53,18 +53,16 @@ export default function SignInForm() {
                 <button
                   type="button"
                   onClick={() => setRole("patient")}
-                  className={`px-3 py-1 text-sm rounded-md transition ${
-                    role === "patient" ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white/90 shadow" : "text-gray-600 dark:text-gray-400"
-                  }`}
+                  className={`px-3 py-1 text-sm rounded-md transition ${role === "patient" ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white/90 shadow" : "text-gray-600 dark:text-gray-400"
+                    }`}
                 >
                   Patient
                 </button>
                 <button
                   type="button"
                   onClick={() => setRole("doctor")}
-                  className={`px-3 py-1 text-sm rounded-md transition ${
-                    role === "doctor" ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white/90 shadow" : "text-gray-600 dark:text-gray-400"
-                  }`}
+                  className={`px-3 py-1 text-sm rounded-md transition ${role === "doctor" ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white/90 shadow" : "text-gray-600 dark:text-gray-400"
+                    }`}
                 >
                   Doctor
                 </button>
@@ -77,7 +75,7 @@ export default function SignInForm() {
                 setError(null);
                 setLoading(true);
                 try {
-                  const url = `http://localhost:3000/api/${role === "doctor" ? "doctors" : "patients"}/login`;
+                  const url = `${import.meta.env.VITE_API_URL}/api/${role === "doctor" ? "doctors" : "patients"}/login`;
                   const res = await fetch(url, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },

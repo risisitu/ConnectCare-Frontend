@@ -86,7 +86,7 @@ export default function BasicTableOne() {
       setError(null);
 
       try {
-        const res = await fetch("http://localhost:3000/api/doctors/patients", {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/doctors/patients`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -249,8 +249,8 @@ export default function BasicTableOne() {
                           p.status === "Admitted"
                             ? "warning"
                             : p.status === "Under Treatment"
-                            ? "error"
-                            : "success"
+                              ? "error"
+                              : "success"
                         }
                       >
                         {p.status}

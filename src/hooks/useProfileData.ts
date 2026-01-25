@@ -65,9 +65,9 @@ export function useProfileData(): UseProfileDataReturn {
 
       let apiUrl = "";
       if (role === "patient") {
-        apiUrl = "http://localhost:3000/api/patients/profile";
+        apiUrl = `${import.meta.env.VITE_API_URL}/api/patients/profile`;
       } else if (role === "doctor") {
-        apiUrl = "http://localhost:3000/api/doctors/profile";
+        apiUrl = `${import.meta.env.VITE_API_URL}/api/doctors/profile`;
       } else {
         setError(`Unknown role: ${role}`);
         setLoading(false);
@@ -119,8 +119,8 @@ export function useProfileData(): UseProfileDataReturn {
       if (!token) return { success: false, error: "No token found" };
 
       let apiUrl = "";
-      if (role === "patient") apiUrl = "http://localhost:3000/api/patients/profile";
-      else if (role === "doctor") apiUrl = "http://localhost:3000/api/doctors/profile";
+      if (role === "patient") apiUrl = `${import.meta.env.VITE_API_URL}/api/patients/profile`;
+      else if (role === "doctor") apiUrl = `${import.meta.env.VITE_API_URL}/api/doctors/profile`;
       else return { success: false, error: `Unknown role: ${role}` };
 
       const res = await fetch(apiUrl, {

@@ -27,7 +27,7 @@ export default function ForgotPasswordModal({ isOpen, onClose }: ForgotPasswordM
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:3000/api/auth/forgot-password", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, role }),
@@ -81,7 +81,7 @@ export default function ForgotPasswordModal({ isOpen, onClose }: ForgotPasswordM
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:3000/api/auth/verify-otp", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, role, otp: parseInt(otpValue) }),
@@ -127,7 +127,7 @@ export default function ForgotPasswordModal({ isOpen, onClose }: ForgotPasswordM
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:3000/api/auth/reset-password", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -218,22 +218,20 @@ export default function ForgotPasswordModal({ isOpen, onClose }: ForgotPasswordM
                 <button
                   type="button"
                   onClick={() => setRole("patient")}
-                  className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition ${
-                    role === "patient"
+                  className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition ${role === "patient"
                       ? "bg-brand-600 text-white border-brand-600"
                       : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700"
-                  }`}
+                    }`}
                 >
                   Patient
                 </button>
                 <button
                   type="button"
                   onClick={() => setRole("doctor")}
-                  className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition ${
-                    role === "doctor"
+                  className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition ${role === "doctor"
                       ? "bg-brand-600 text-white border-brand-600"
                       : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700"
-                  }`}
+                    }`}
                 >
                   Doctor
                 </button>

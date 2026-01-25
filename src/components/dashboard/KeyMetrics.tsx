@@ -18,7 +18,7 @@ export default function KeyMetrics() {
                 const token = localStorage.getItem("token");
                 if (!token) return;
 
-                const response = await fetch("http://localhost:3000/api/doctors/appointments", {
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/api/doctors/appointments`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
 

@@ -7,6 +7,9 @@ import {
     TableRow,
 } from "../ui/table";
 import Badge from "../ui/badge/Badge";
+import VideoCallModal from "../../components/VideoCall/VideoCallModal";
+import { useAuth } from "../../components/auth/useAuth";
+
 
 interface Appointment {
     id: string;
@@ -30,6 +33,13 @@ export default function DashboardAppointmentsTable() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // Video Call
+    const [videoCallOpen, setVideoCallOpen] = useState(false);
+    const [callTarget, setCallTarget] = useState<{ id: string; name: string } | undefined>(undefined);
+    const [callAppointmentId, setCallAppointmentId] = useState<string | undefined>(undefined);
+    const { user } = useAuth();
+
+
     useEffect(() => {
         const fetchAppointments = async () => {
             try {
@@ -41,7 +51,7 @@ export default function DashboardAppointmentsTable() {
                 const doctorId = user.id;
 
                 const response = await fetch(
-                    `http://localhost:3000/api/doctors/${doctorId}/appointments`
+                    `${import.meta.env.VITE_API_URL}/api/doctors/${doctorId}/appointments`
                 );
                 const result = await response.json();
 
@@ -97,7 +107,18 @@ export default function DashboardAppointmentsTable() {
         return new Date(dateString).toLocaleDateString();
     };
 
+    const initiateCall = (app: Appointment) => {
+        // Target is patient
+        const targetId = app.patient_id;
+        const targetName = `${app.patient_first_name} ${app.patient_last_name}`;
+
+        setCallTarget({ id: targetId, name: targetName });
+        setCallAppointmentId(app.id);
+        setVideoCallOpen(true);
+    };
+
     if (loading) return <div>Loading appointments...</div>;
+
     if (error) return <div>{error}</div>;
 
     return (
@@ -157,7 +178,14 @@ export default function DashboardAppointmentsTable() {
                             >
                                 Status
                             </TableCell>
+                            <TableCell
+                                isHeader
+                                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                            >
+                                Action
+                            </TableCell>
                         </TableRow>
+
                     </TableHeader>
 
                     <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -200,12 +228,30 @@ export default function DashboardAppointmentsTable() {
                                             {app.status}
                                         </Badge>
                                     </TableCell>
+                                    <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                                        <button
+                                            className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 flex items-center gap-1"
+                                            onClick={() => initiateCall(app)}
+                                        >
+                                            <span>📹</span> Call
+                                        </button>
+                                    </TableCell>
                                 </TableRow>
                             ))
                         )}
                     </TableBody>
                 </Table>
             </div>
+
+            <VideoCallModal
+                isOpen={videoCallOpen}
+                onClose={() => setVideoCallOpen(false)}
+                localUser={user ? { id: user.id || "unknown", name: user.name || user.email || "Doctor" } : { id: "doc", name: "Doctor" }}
+                targetUser={callTarget}
+                appointmentId={callAppointmentId}
+            />
         </div>
     );
+
+
 }
