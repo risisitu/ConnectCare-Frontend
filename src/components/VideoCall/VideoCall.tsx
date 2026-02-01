@@ -13,6 +13,7 @@ interface IWindow extends Window {
 
 // Socket.IO server URL - adjust if backend runs on a different port
 const SOCKET_URL = import.meta.env.VITE_API_URL;
+console.log('VideoCall: SOCKET_URL:', SOCKET_URL);
 
 interface User {
     id: string;
@@ -95,13 +96,11 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
     const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
     const localStreamRef = useRef<MediaStream | null>(null);
+    const iceCandidatesBuffer = useRef<RTCIceCandidateInit[]>([]); // Buffer for early candidates
 
-    // ICE Servers
+    // ICE Servers - EMPTY for local LAN debugging to prevent STUN/IPv6 errors
     const iceServers = {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
-        ]
+        iceServers: []
     };
 
     useEffect(() => {
@@ -138,6 +137,8 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
             if (peerConnectionRef.current) {
                 try {
                     await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
+                    // Also process buffered candidates here (for Caller side)
+                    await processBufferedCandidates(peerConnectionRef.current);
                 } catch (err) {
                     console.error('Error setting remote description:', err);
                 }
@@ -145,12 +146,18 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
         });
 
         socket.on('ice-candidate', async (data: { from: string; candidate: RTCIceCandidateInit }) => {
-            if (peerConnectionRef.current) {
+            console.log('VideoCall: Received remote ICE candidate from', data.from, data.candidate);
+
+            if (peerConnectionRef.current && peerConnectionRef.current.remoteDescription) {
                 try {
                     await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+                    console.log('VideoCall: Added remote ICE candidate success', data.candidate.candidate);
                 } catch (err) {
                     console.error('Error adding ICE candidate:', err);
                 }
+            } else {
+                console.log('VideoCall: Buffering ICE candidate (PC not ready or remote desc missing)');
+                iceCandidatesBuffer.current.push(data.candidate);
             }
         });
 
@@ -165,12 +172,15 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
         });
 
         return () => {
-
             if (localStreamRef.current) {
                 localStreamRef.current.getTracks().forEach(track => track.stop());
             }
             if (socketRef.current) {
                 socketRef.current.disconnect();
+            }
+            if (peerConnectionRef.current) {
+                peerConnectionRef.current.close();
+                peerConnectionRef.current = null;
             }
         };
     }, []); // Run once on mount
@@ -343,6 +353,13 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
     };
 
     const createPeerConnection = (userId: string) => {
+        // Cleanup old connection if exists
+        if (peerConnectionRef.current) {
+            console.warn("Closing existing peer connection before creating new one");
+            peerConnectionRef.current.close();
+            peerConnectionRef.current = null;
+        }
+
         const pc = new RTCPeerConnection(iceServers);
 
         // Add local tracks
@@ -361,21 +378,43 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
 
         // Handle ICE candidates
         pc.onicecandidate = (event) => {
-            if (event.candidate && socketRef.current) {
-                socketRef.current.emit('ice-candidate', {
-                    to: userId,
-                    from: mySocketId,
-                    candidate: event.candidate
-                });
+            if (event.candidate) {
+                // Filter out IPv6 candidates for local network stability
+                const parts = event.candidate.candidate.split(' ');
+                const ip = parts[4];
+                if (ip && ip.indexOf(':') !== -1) {
+                    console.log('VideoCall: Ignoring IPv6 candidate:', event.candidate.candidate);
+                    return;
+                }
+
+                console.log('VideoCall: Generated local ICE candidate:', event.candidate.candidate);
+                if (socketRef.current) {
+                    socketRef.current.emit('ice-candidate', {
+                        to: userId,
+                        from: mySocketId,
+                        candidate: event.candidate
+                    });
+                }
+            } else {
+                console.log('VideoCall: End of ICE candidates');
             }
         };
 
+        pc.onicecandidateerror = (event: any) => {
+            console.error('VideoCall: ICE Candidate Error:', event);
+        };
+
         pc.onconnectionstatechange = () => {
+            console.log('VideoCall: Connection State Change:', pc.connectionState);
             if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
                 // Handle cleanup if needed
                 console.log("Connection state change:", pc.connectionState);
             }
-        }
+        };
+
+        pc.oniceconnectionstatechange = () => {
+            console.log('VideoCall: ICE Connection State Change:', pc.iceConnectionState);
+        };
 
         peerConnectionRef.current = pc;
         return pc;
@@ -399,6 +438,9 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
         const pc = createPeerConnection(targetSocketId);
         setRemoteUsername(targetUsername);
 
+        // Clean buffer before starting new call logic
+        iceCandidatesBuffer.current = [];
+
         try {
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
@@ -416,6 +458,21 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
         }
     };
 
+    const processBufferedCandidates = async (pc: RTCPeerConnection) => {
+        if (iceCandidatesBuffer.current.length > 0) {
+            console.log(`VideoCall: Processing ${iceCandidatesBuffer.current.length} buffered candidates`);
+            for (const candidate of iceCandidatesBuffer.current) {
+                try {
+                    await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                    console.log('VideoCall: Added buffered ICE candidate success');
+                } catch (err) {
+                    console.error('Error adding buffered ICE candidate:', err);
+                }
+            }
+            iceCandidatesBuffer.current = [];
+        }
+    };
+
     const acceptCall = async () => {
         if (!incomingCall || !socketRef.current) return;
 
@@ -424,6 +481,10 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
 
         try {
             await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.offer));
+
+            // Process any buffered candidates now that remote description is set
+            await processBufferedCandidates(pc);
+
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
 
