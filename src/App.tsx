@@ -21,6 +21,7 @@ import RequireAuth from "./components/auth/RequireAuth";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
 import VideoCall from "./components/VideoCall/VideoCall";
+import DoctorsList from "./pages/Dashboard/DoctorsList";
 
 export default function App() {
   return (
@@ -31,6 +32,9 @@ export default function App() {
           {/* Dashboard Layout */}
           <Route path="/TailAdmin/" element={<RequireAuth><AppLayout /></RequireAuth>}>
             <Route index element={<Home />} />
+
+            {/* New Route for Doctors List */}
+            <Route path="doctors" element={<DoctorsList />} />
 
             {/* Others Page */}
             <Route path="profile" element={<UserProfiles />} />

@@ -13,7 +13,7 @@ export default function FindDoctorCard() {
                 Find the right specialist for your needs and book an appointment today.
             </p>
             <button
-                onClick={() => navigate("/TailAdmin/appointment/doctors")} // Assuming this route exists or we will direct to calendar/list
+                onClick={() => navigate("/TailAdmin/doctors")}
                 className="w-full rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 transition"
             >
                 Find a Doctor

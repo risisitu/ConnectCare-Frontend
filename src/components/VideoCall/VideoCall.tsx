@@ -62,6 +62,7 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
     const [isVideoEnabled, setIsVideoEnabled] = useState(true);
     const [mySocketId, setMySocketId] = useState<string>('');
     const [remoteUsername, setRemoteUsername] = useState<string>('Remote User');
+    const [currentPeerId, setCurrentPeerId] = useState<string | null>(null);
 
     // Chat State
     const [isChatOpen, setIsChatOpen] = useState(false);
@@ -417,6 +418,9 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
                 // Handle cleanup if needed
                 console.log("Connection state change:", pc.connectionState);
             }
+            if (pc.connectionState === 'connected') {
+                startTimer();
+            }
         };
 
         pc.oniceconnectionstatechange = () => {
@@ -442,6 +446,7 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
     };
 
     const startCall = async (targetSocketId: string, targetUsername: string) => {
+        setCurrentPeerId(targetSocketId);
         const pc = createPeerConnection(targetSocketId);
         setRemoteUsername(targetUsername);
 
@@ -485,6 +490,7 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
 
         const pc = createPeerConnection(incomingCall.from);
         setRemoteUsername(incomingCall.username);
+        setCurrentPeerId(incomingCall.from);
 
         try {
             await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.offer));
@@ -507,6 +513,78 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
         }
     };
 
+    // Timer State
+    const [timeLeft, setTimeLeft] = useState<number | null>(null);
+    const timerRef = useRef<any>(null);
+
+    // ... existing refs and useEffects
+
+    // Add end-call listener
+    useEffect(() => {
+        if (!socketRef.current) return;
+
+        socketRef.current.on('end-call', () => {
+            console.log('VideoCall: Received end-call event');
+            alert('Consultation ended by remote user.');
+            cleanupCall();
+            if (onClose) onClose();
+            else window.location.reload();
+        });
+
+        return () => {
+            socketRef.current?.off('end-call');
+        };
+    }, [isSocketConnected]); // Re-attach if socket reconnects (or just once if stable)
+
+    // Timer logic
+    useEffect(() => {
+        if (timeLeft === 0) {
+            // Time up
+            console.log('VideoCall: Time up!');
+            alert('Consultation time finished!');
+            forceEndCall();
+        }
+    }, [timeLeft]);
+
+    const startTimer = () => {
+        if (timerRef.current) clearInterval(timerRef.current);
+        setTimeLeft(60); // 1 minute
+        timerRef.current = setInterval(() => {
+            setTimeLeft(prev => {
+                if (prev === null) return 60;
+                if (prev <= 0) {
+                    if (timerRef.current) clearInterval(timerRef.current);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+    };
+
+    const stopTimer = () => {
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
+        setTimeLeft(null);
+    };
+
+    const forceEndCall = () => {
+        // Emit end-call to remote
+        if (socketRef.current && currentPeerId) {
+            socketRef.current.emit('end-call', {
+                to: currentPeerId,
+                from: mySocketId
+            });
+        }
+        cleanupCall();
+        if (onClose) onClose();
+        else window.location.reload();
+    };
+
+    // ...
+
+
     const declineCall = () => {
         if (!incomingCall || !socketRef.current) return;
 
@@ -525,7 +603,12 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
         if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = null;
         }
+        if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = null;
+        }
         setRemoteUsername('Remote User');
+        setCurrentPeerId(null);
+        stopTimer();
     };
 
     const hangUp = () => {
@@ -594,8 +677,15 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
             ) : (
                 <div className="video-section">
                     <div className="status-bar">
-                        <span>Status: {callStatus}</span>
-                        <span>Logged in as: <strong>{username}</strong></span>
+                        <div className="flex items-center gap-4">
+                            <span>Status: {callStatus}</span>
+                            <span>Logged in as: <strong>{username}</strong></span>
+                            {timeLeft !== null && (
+                                <span className={`font-bold text-xl ${timeLeft < 10 ? 'text-red-500 animate-pulse' : 'text-green-500'}`}>
+                                    Time Left: {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                                </span>
+                            )}
+                        </div>
                         {effectiveTargetUser && (
                             <span className="ml-4">
                                 Target: <strong>{effectiveTargetUser.name}</strong>
@@ -698,6 +788,13 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
                             title="Hang Up"
                         >
                             📞
+                        </button>
+                        <button
+                            className="bg-red-600 text-white px-3 py-2 rounded-full hover:bg-red-700 transition font-bold"
+                            onClick={forceEndCall}
+                            title="End Consultation Forcefully"
+                        >
+                            End Consultation
                         </button>
                         {effectiveAppointmentId && (
                             <button
