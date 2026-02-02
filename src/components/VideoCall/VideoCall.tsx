@@ -167,8 +167,15 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
         });
 
         // Chat listener
-        socket.on('receive-message', (message: Message) => {
-            setMessages(prev => [...prev, message]);
+        socket.on('receive-message', (message: any) => {
+            const formattedMessage: Message = {
+                id: message.id,
+                senderId: message.senderId || message.sender_id,
+                senderName: message.senderName || message.sender_name,
+                content: message.content,
+                createdAt: message.createdAt || message.created_at
+            };
+            setMessages(prev => [...prev, formattedMessage]);
         });
 
         return () => {
@@ -636,12 +643,24 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
                                     <button onClick={() => setIsChatOpen(false)} className="text-sm text-gray-500">&larr; Users</button>
                                 </div>
                                 <div className="chat-messages">
-                                    {messages.map((msg, idx) => (
-                                        <div key={msg.id || idx} className={`message ${msg.senderId === effectiveLocalUser?.id ? 'sent' : 'received'}`}>
-                                            <span className="message-sender">{msg.senderName}</span>
-                                            {msg.content}
-                                        </div>
-                                    ))}
+                                    {messages.map((msg, idx) => {
+                                        const myId = String(effectiveLocalUser?.id);
+                                        const senderId = String(msg.senderId);
+                                        // Debug log only for the first message to avoid spamming validity check
+                                        if (idx === messages.length - 1) {
+                                            console.log(`VideoCall: Rendering msg from ${senderId} (Me: ${myId}) -> IsOwn: ${senderId === myId}`);
+                                        }
+
+                                        const isOwnMessage = senderId === myId;
+                                        return (
+                                            <div key={msg.id || idx} className={`message ${isOwnMessage ? 'sent' : 'received'}`}>
+                                                <span className="message-sender">
+                                                    {msg.senderName} {isOwnMessage ? '(You)' : ''}
+                                                </span>
+                                                {msg.content}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                                 <div className="chat-input-area">
                                     <input
