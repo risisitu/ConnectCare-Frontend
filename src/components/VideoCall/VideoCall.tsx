@@ -548,10 +548,10 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
 
     const startTimer = () => {
         if (timerRef.current) clearInterval(timerRef.current);
-        setTimeLeft(60); // 1 minute
+        setTimeLeft(600); // 10 minutes
         timerRef.current = setInterval(() => {
             setTimeLeft(prev => {
-                if (prev === null) return 60;
+                if (prev === null) return 600;
                 if (prev <= 0) {
                     if (timerRef.current) clearInterval(timerRef.current);
                     return 0;
@@ -570,23 +570,45 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
     };
 
     const forceEndCall = async () => {
+        // Flush any remaining transcript
+        if (isSttEnabled && effectiveAppointmentId && transcriptBufferRef.current.trim().length > 0) {
+            const textToSend = `[Auto-Transcript]: ${transcriptBufferRef.current}`;
+            if (socketRef.current) {
+                console.log("Flushing final transcript:", textToSend);
+                const msgData = {
+                    appointmentId: effectiveAppointmentId,
+                    senderId: effectiveLocalUser?.id,
+                    senderName: effectiveLocalUser?.name,
+                    content: textToSend
+                };
+                socketRef.current.emit('send-message', msgData);
+                transcriptBufferRef.current = ''; // Clear
+                // Small delay to allow socket emit?
+                await new Promise(r => setTimeout(r, 500));
+            }
+        }
+
         // Trigger Report Generation
         if (effectiveAppointmentId) {
             console.log("Triggering AI Report Generation...");
             try {
-                // Fire and forget - or wait?
-                // Using fetch with keepalive to ensure it sends even if page unloads
-                fetch(`${import.meta.env.VITE_API_URL}/api/appointments/${effectiveAppointmentId}/ai-reports`, {
+                // Await the request to ensure it sends before reloading
+                // Note: This might block the UI for a few seconds while the report generates.
+                // We could add a loading state here if needed.
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/api/appointments/${effectiveAppointmentId}/ai-reports`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
                         'Content-Type': 'application/json'
                     },
-                    keepalive: true
-                }).then(() => console.log("Report generation triggered"))
-                    .catch(e => console.error("Failed to trigger report", e));
+                    // keepalive: true // Removing keepalive as we are awaiting it now, and keepalive has payload limits/quirks
+                });
+                if (res.ok) console.log("Report generation request successful");
+                else console.error("Report generation request failed", await res.text());
+
             } catch (err) {
                 console.error("Error triggering report:", err);
+                alert("Failed to trigger report generation. Please check console.");
             }
         }
 
@@ -632,12 +654,8 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
     };
 
     const hangUp = () => {
-        cleanupCall();
-        if (onClose) {
-            onClose(); // Close modal if provided
-        } else {
-            window.location.reload();
-        }
+        // Use forceEndCall to ensure report generation logic runs
+        forceEndCall();
     };
 
     const toggleAudio = () => {

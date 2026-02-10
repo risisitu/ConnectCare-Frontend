@@ -284,7 +284,6 @@ export default function SidebarAppointments({
               <label className="text-xs">Type</label>
               <select name="appointmentType" value={form.appointmentType} onChange={handleChange} className="w-full mt-1 p-2 border rounded">
                 <option value="video">Video</option>
-                <option value="in-person">In-person</option>
               </select>
             </div>
 
@@ -386,7 +385,6 @@ export default function SidebarAppointments({
                 <label className="text-xs">Type</label>
                 <select name="appointmentType" value={form.appointmentType} onChange={handleChange} className="w-full mt-1 p-2 border rounded">
                   <option value="video">Video</option>
-                  <option value="in-person">In-person</option>
                 </select>
               </div>
 
