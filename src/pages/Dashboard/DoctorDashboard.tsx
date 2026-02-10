@@ -4,7 +4,9 @@ import DashboardAppointmentsTable from "../../components/Appointments/DashboardA
 // New components
 import TotalConsultations from "../../components/dashboard/TotalConsultations";
 import KeyMetrics from "../../components/dashboard/KeyMetrics";
+
 import TimeSaved from "../../components/dashboard/TimeSaved";
+import RecentReports from "../../components/dashboard/RecentReports";
 
 export default function DoctorDashboard() {
     return (
@@ -24,7 +26,11 @@ export default function DoctorDashboard() {
                         <TotalConsultations />
 
                         {/* Appointments Table */}
+                        {/* Appointments Table */}
                         <DashboardAppointmentsTable />
+
+                        {/* Recent Reports */}
+                        <RecentReports />
                     </div>
 
                     {/* Sidebar Column */}

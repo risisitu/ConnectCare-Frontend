@@ -1,129 +1,134 @@
-import Chart from "react-apexcharts";
-import { ApexOptions } from "apexcharts";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 
 export default function MonthlyTarget() {
-  const [series, setSeries] = useState<number[]>([0, 0]); // [Male, Female]
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+    const [stats, setStats] = useState({
+        currentMonth: 0,
+        target: 100,
+        percentage: 0
+    });
+    const [loading, setLoading] = useState(true);
 
-  const options: ApexOptions = {
-    colors: ["#3C50E0", "#FF4560"], // Blue for Male, Pink/Red for Female
-    chart: {
-      fontFamily: "Outfit, sans-serif",
-      type: "pie",
-      height: 330,
-    },
-    labels: ["Male", "Female"],
-    legend: {
-      position: "bottom",
-    },
-    dataLabels: {
-      enabled: true,
-      formatter: function (val: number) {
-        return val.toFixed(1) + "%";
-      },
-    },
-    plotOptions: {
-      pie: {
-        donut: {
-          size: "65%",
-        },
-      },
-    },
-  };
+    useEffect(() => {
+        const fetchMonthlyStats = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                if (!token) {
+                    setLoading(false);
+                    return;
+                }
 
-  useEffect(() => {
-    const fetchPatients = async () => {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem("token");
-        if (!token) {
-          setError("No authentication token found");
-          setLoading(false);
-          return;
-        }
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/api/doctors/appointments`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
 
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/doctors/patients`, {
-          headers: {
-            "Authorization": `Bearer ${token}`
-          }
-        });
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success && Array.isArray(result.data)) {
+                        const appointments = result.data;
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch patients");
-        }
+                        // Get current month's appointments
+                        const now = new Date();
+                        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                        const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-        const data = await response.json();
-        if (data.success && Array.isArray(data.data)) {
-          const patients = data.data;
-          const maleCount = patients.filter((p: any) => p.gender?.toLowerCase() === 'male').length;
-          const femaleCount = patients.filter((p: any) => p.gender?.toLowerCase() === 'female').length;
-          setSeries([maleCount, femaleCount]);
-        }
-      } catch (err: any) {
-        console.error("Error fetching patient demographics:", err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+                        const monthlyAppointments = appointments.filter((app: any) => {
+                            const appDate = new Date(app.appointment_date);
+                            return appDate >= currentMonthStart && appDate <= currentMonthEnd;
+                        });
 
-    fetchPatients();
-  }, []);
+                        const count = monthlyAppointments.length;
+                        const target = 100; // You can make this dynamic if needed
+                        const percentage = Math.min(Math.round((count / target) * 100), 100);
 
-  if (loading) {
+                        setStats({
+                            currentMonth: count,
+                            target: target,
+                            percentage: percentage
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error("Error fetching monthly stats:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchMonthlyStats();
+    }, []);
+
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-default dark:border-gray-800 dark:bg-gray-900 h-[400px] flex items-center justify-center">
-        <p className="text-gray-500">Loading demographics...</p>
-      </div>
-    )
-  }
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-default dark:border-gray-800 dark:bg-gray-900">
+            <div className="mb-4">
+                <h4 className="text-xl font-bold text-gray-800 dark:text-white">
+                    Monthly Target
+                </h4>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Consultations this month
+                </p>
+            </div>
 
-  if (error) {
-    return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-default dark:border-gray-800 dark:bg-gray-900 h-[400px] flex items-center justify-center">
-        <p className="text-red-500">Error: {error}</p>
-      </div>
-    )
-  }
+            <div className="mb-6">
+                <div className="flex items-baseline gap-2 mb-2">
+                    <span className="text-4xl font-bold text-gray-800 dark:text-white">
+                        {stats.currentMonth}
+                    </span>
+                    <span className="text-lg text-gray-500 dark:text-gray-400">
+                        / {stats.target}
+                    </span>
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {stats.percentage}% of monthly goal
+                </p>
+            </div>
 
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-white/[0.03]">
-      <div className="px-5 pt-5 bg-white shadow-default rounded-2xl pb-11 dark:bg-gray-900 sm:px-6 sm:pt-6">
-        <div className="flex justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-              Patient Demographics
-            </h3>
-            <p className="mt-1 text-gray-500 text-theme-sm dark:text-gray-400">
-              Distribution of current patients by gender
-            </p>
-          </div>
-        </div>
-        <div className="relative flex justify-center">
-          <div className="max-h-[330px]" id="chartDarkStyle">
-            <Chart
-              options={options}
-              series={series}
-              type="pie"
-              height={330}
-              width={300}
-            />
-          </div>
-        </div>
+            <div className="mb-4">
+                <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700 overflow-hidden">
+                    <div
+                        className="bg-gradient-to-r from-brand-500 to-brand-600 h-3 rounded-full transition-all duration-500 ease-out"
+                        style={{ width: `${stats.percentage}%` }}
+                    ></div>
+                </div>
+            </div>
 
-        <div className="mt-6 flex justify-center gap-8">
-          <div className="text-center">
-            <span className="block text-xl font-bold text-gray-800 dark:text-white">{series[0]}</span>
-            <span className="text-sm text-gray-500">Male</span>
-          </div>
-          <div className="text-center">
-            <span className="block text-xl font-bold text-gray-800 dark:text-white">{series[1]}</span>
-            <span className="text-sm text-gray-500">Female</span>
-          </div>
+            <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+                    <div className="flex items-center gap-2 mb-1">
+                        <svg className="w-4 h-4 text-success-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                        </svg>
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">On Track</span>
+                    </div>
+                    <p className="text-lg font-bold text-gray-800 dark:text-white">
+                        {stats.percentage >= 50 ? 'Yes' : 'Behind'}
+                    </p>
+                </div>
+
+                <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+                    <div className="flex items-center gap-2 mb-1">
+                        <svg className="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Remaining</span>
+                    </div>
+                    <p className="text-lg font-bold text-gray-800 dark:text-white">
+                        {Math.max(stats.target - stats.currentMonth, 0)}
+                    </p>
+                </div>
+            </div>
+
+            {!loading && stats.percentage >= 100 && (
+                <div className="mt-4 rounded-lg bg-success-50 p-3 dark:bg-success-500/10">
+                    <div className="flex items-center gap-2">
+                        <svg className="w-5 h-5 text-success-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-sm font-medium text-success-700 dark:text-success-400">
+                            Target achieved! 🎉
+                        </span>
+                    </div>
+                </div>
+            )}
         </div>
-      </div>
-    </div>
-  );
+    );
 }

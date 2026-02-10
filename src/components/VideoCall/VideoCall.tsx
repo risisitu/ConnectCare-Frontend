@@ -569,7 +569,27 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
         setTimeLeft(null);
     };
 
-    const forceEndCall = () => {
+    const forceEndCall = async () => {
+        // Trigger Report Generation
+        if (effectiveAppointmentId) {
+            console.log("Triggering AI Report Generation...");
+            try {
+                // Fire and forget - or wait?
+                // Using fetch with keepalive to ensure it sends even if page unloads
+                fetch(`${import.meta.env.VITE_API_URL}/api/appointments/${effectiveAppointmentId}/ai-reports`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+                        'Content-Type': 'application/json'
+                    },
+                    keepalive: true
+                }).then(() => console.log("Report generation triggered"))
+                    .catch(e => console.error("Failed to trigger report", e));
+            } catch (err) {
+                console.error("Error triggering report:", err);
+            }
+        }
+
         // Emit end-call to remote
         if (socketRef.current && currentPeerId) {
             socketRef.current.emit('end-call', {

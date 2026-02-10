@@ -1,6 +1,7 @@
 import PageMeta from "../../components/common/PageMeta";
 import PatientAppointmentsTable from "../../components/Appointments/PatientAppointmentsTable";
 import FindDoctorCard from "../../components/dashboard/FindDoctorCard";
+import PatientRecentReports from "../../components/dashboard/PatientRecentReports";
 
 export default function PatientDashboard() {
     return (
@@ -21,6 +22,11 @@ export default function PatientDashboard() {
                     <div className="col-span-12 xl:col-span-4 space-y-6">
                         {/* Find Doctor Widget */}
                         <FindDoctorCard />
+                    </div>
+
+                    {/* Reports Section - Full Width or under Appointments */}
+                    <div className="col-span-12 space-y-6">
+                        <PatientRecentReports />
                     </div>
                 </div>
             </div>
