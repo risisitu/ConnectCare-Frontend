@@ -7,14 +7,27 @@ import KeyMetrics from "../../components/dashboard/KeyMetrics";
 
 import TimeSaved from "../../components/dashboard/TimeSaved";
 import RecentReports from "../../components/dashboard/RecentReports";
+import { useState, useEffect } from "react";
 
 export default function DoctorDashboard() {
+    const [user, setUser] = useState<any>(null);
+
+    useEffect(() => {
+        const userStr = localStorage.getItem("user");
+        if (userStr) {
+            setUser(JSON.parse(userStr));
+        }
+    }, []);
+
     return (
         <>
             <PageMeta
                 title="Doctor Dashboard | ConnectCare"
                 description="Doctor Dashboard for ConnectCare"
             />
+
+            {/* Manage Availability Moved to Sidebar -> Calendar */}
+
             <div className="space-y-6">
                 {/* Key Metrics Row */}
                 <KeyMetrics />
@@ -43,6 +56,7 @@ export default function DoctorDashboard() {
                     </div>
                 </div>
             </div>
+            {/* Modal functionality moved to Calendar Page */}
         </>
     );
 }

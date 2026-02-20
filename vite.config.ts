@@ -8,7 +8,6 @@ export default defineConfig({
   base: "/TailAdmin/",
   server: {
     host: true,
-    https: true, // Enable HTTPS for Frontend
     proxy: {
       // Proxy API requests to HTTP Backend
       '/api': {

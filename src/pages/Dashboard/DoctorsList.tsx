@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
+import BookingModal from "../../components/Appointments/BookingModal";
 
 interface Doctor {
     id: string;
@@ -15,6 +16,8 @@ export default function DoctorsList() {
     const [doctors, setDoctors] = useState<Doctor[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     useEffect(() => {
         const fetchDoctors = async () => {
@@ -102,7 +105,13 @@ export default function DoctorsList() {
                                 </div>
 
                                 <div className="pt-2 mt-auto">
-                                    <button className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition">
+                                    <button
+                                        onClick={() => {
+                                            setSelectedDoctor(doctor);
+                                            setIsModalOpen(true);
+                                        }}
+                                        className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition"
+                                    >
                                         Book Appointment <span>&rarr;</span>
                                     </button>
                                 </div>
@@ -115,6 +124,12 @@ export default function DoctorsList() {
                     </div>
                 </div>
             </div>
+            {/* Modal */}
+            <BookingModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                doctor={selectedDoctor}
+            />
         </>
     );
 }
