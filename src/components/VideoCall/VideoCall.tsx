@@ -603,12 +603,18 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
                     },
                     // keepalive: true // Removing keepalive as we are awaiting it now, and keepalive has payload limits/quirks
                 });
-                if (res.ok) console.log("Report generation request successful");
-                else console.error("Report generation request failed", await res.text());
+                if (res.ok) {
+                    console.log("Report generation request successful");
+                    // alert("Consultation ended. AI report is being generated and will be available on your dashboard shortly.");
+                } else {
+                    const errorData = await res.json();
+                    console.error("Report generation request failed", errorData);
+                    alert(`Consultation ended, but AI report generation failed: ${errorData.error || 'Unknown error'}. You can retry from the dashboard.`);
+                }
 
-            } catch (err) {
+            } catch (err: any) {
                 console.error("Error triggering report:", err);
-                alert("Failed to trigger report generation. Please check console.");
+                alert(`Failed to trigger report generation: ${err.message}. Please check your connection.`);
             }
         }
 

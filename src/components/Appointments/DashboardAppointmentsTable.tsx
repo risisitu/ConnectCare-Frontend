@@ -23,6 +23,7 @@ interface Appointment {
     reason: string | null;
     patient_first_name: string;
     patient_last_name: string;
+    has_report?: boolean;
 }
 
 type FilterType = "today" | "yesterday" | "upcoming" | "all";
@@ -56,7 +57,21 @@ export default function DashboardAppointmentsTable() {
                 const result = await response.json();
 
                 if (result.success) {
-                    setAppointments(result.data);
+                    // Check which appointments have reports
+                    const appointmentsWithReports = result.data;
+                    const reportRes = await fetch(`${import.meta.env.VITE_API_URL}/api/reports`, {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                    });
+                    if (reportRes.ok) {
+                        const reportData = await reportRes.json();
+                        const reportAppIds = new Set(reportData.data.map((r: any) => r.appointment_id));
+                        setAppointments(appointmentsWithReports.map((app: any) => ({
+                            ...app,
+                            has_report: reportAppIds.has(app.id)
+                        })));
+                    } else {
+                        setAppointments(appointmentsWithReports);
+                    }
                 } else {
                     setError("Failed to fetch appointments");
                 }
@@ -115,6 +130,33 @@ export default function DashboardAppointmentsTable() {
         setCallTarget({ id: targetId, name: targetName });
         setCallAppointmentId(app.id);
         setVideoCallOpen(true);
+    };
+
+    const [generatingReport, setGeneratingReport] = useState<string | null>(null);
+
+    const handleRetryReport = async (appointmentId: string) => {
+        setGeneratingReport(appointmentId);
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/appointments/${appointmentId}/ai-reports`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            if (res.ok) {
+                alert("Report generation started successfully! It will appear in Recent Reports shortly.");
+                // Update local state
+                setAppointments(prev => prev.map(app => app.id === appointmentId ? { ...app, has_report: true } : app));
+            } else {
+                const data = await res.json();
+                alert(`Failed to generate report: ${data.error || 'Unknown error'}`);
+            }
+        } catch (err: any) {
+            alert(`Error: ${err.message}`);
+        } finally {
+            setGeneratingReport(null);
+        }
     };
 
     if (loading) return <div>Loading appointments...</div>;
@@ -229,12 +271,37 @@ export default function DashboardAppointmentsTable() {
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                        <button
-                                            className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 flex items-center gap-1"
-                                            onClick={() => initiateCall(app)}
-                                        >
-                                            <span>📹</span> Call
-                                        </button>
+                                        <div className="flex flex-col gap-2">
+                                            {(() => {
+                                                const appDate = new Date(app.appointment_date);
+                                                const today = new Date();
+                                                today.setHours(0, 0, 0, 0);
+                                                const appDateOnly = new Date(appDate.getFullYear(), appDate.getMonth(), appDate.getDate());
+                                                const isPast = appDateOnly.getTime() < today.getTime();
+                                                const isCompleted = app.status === 'completed';
+
+                                                if (!isPast && !isCompleted) {
+                                                    return (
+                                                        <button
+                                                            className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 flex items-center gap-1 w-fit"
+                                                            onClick={() => initiateCall(app)}
+                                                        >
+                                                            <span>📹</span> Call
+                                                        </button>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
+                                            {app.status === 'scheduled' && !app.has_report && (
+                                                <button
+                                                    disabled={generatingReport === app.id}
+                                                    className="bg-purple-500 text-white px-2 py-1 rounded text-xs hover:bg-purple-600 flex items-center gap-1 w-fit disabled:opacity-50"
+                                                    onClick={() => handleRetryReport(app.id)}
+                                                >
+                                                    <span>📝</span> {generatingReport === app.id ? 'Generating...' : 'Gen Report'}
+                                                </button>
+                                            )}
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))

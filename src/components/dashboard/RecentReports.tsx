@@ -9,6 +9,7 @@ interface Report {
     appointment_type: string;
     prescription: string;
     notes: string;
+    sent_to_patient: boolean;
 }
 
 const RecentReports = () => {
@@ -89,11 +90,12 @@ const RecentReports = () => {
         }
     };
 
-    const handleSendToPatient = async () => {
-        if (!selectedReport) return;
+    const handleSendToPatient = async (reportToSendMessage?: Report) => {
+        const targetReport = reportToSendMessage || selectedReport;
+        if (!targetReport) return;
         setSending(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/reports/${selectedReport.id}/send`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/reports/${targetReport.id}/send`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -101,6 +103,11 @@ const RecentReports = () => {
             });
 
             if (res.ok) {
+                // Update local list
+                setReports(reports.map(r => r.id === targetReport.id ? { ...r, sent_to_patient: true } : r));
+                if (selectedReport && selectedReport.id === targetReport.id) {
+                    setSelectedReport({ ...selectedReport, sent_to_patient: true });
+                }
                 alert("Report sent to patient successfully!");
             } else {
                 const data = await res.json();
@@ -125,7 +132,7 @@ const RecentReports = () => {
             </h4>
 
             <div className="flex flex-col">
-                <div className="grid grid-cols-3 rounded-sm bg-gray-2 dark:bg-meta-4 sm:grid-cols-4">
+                <div className="grid grid-cols-3 rounded-sm bg-gray-2 dark:bg-meta-4 sm:grid-cols-5">
                     <div className="p-2.5 xl:p-5">
                         <h5 className="text-sm font-medium uppercase xsm:text-base">Date</h5>
                     </div>
@@ -134,6 +141,9 @@ const RecentReports = () => {
                     </div>
                     <div className="p-2.5 text-center xl:p-5">
                         <h5 className="text-sm font-medium uppercase xsm:text-base">Diagnosis</h5>
+                    </div>
+                    <div className="hidden p-2.5 text-center sm:block xl:p-5">
+                        <h5 className="text-sm font-medium uppercase xsm:text-base">Status</h5>
                     </div>
                     <div className="hidden p-2.5 text-center sm:block xl:p-5">
                         <h5 className="text-sm font-medium uppercase xsm:text-base">Action</h5>
@@ -145,7 +155,7 @@ const RecentReports = () => {
                 ) : (
                     reports.slice(0, 5).map((report, key) => (
                         <div
-                            className={`grid grid-cols-3 sm:grid-cols-4 ${key === reports.length - 1
+                            className={`grid grid-cols-3 sm:grid-cols-5 ${key === reports.length - 1
                                 ? ""
                                 : "border-b border-stroke dark:border-strokedark"
                                 }`}
@@ -165,6 +175,18 @@ const RecentReports = () => {
                                 <p className="text-meta-3">{report.diagnosis}</p>
                             </div>
 
+                            <div className="hidden items-center justify-center p-2.5 sm:flex xl:p-5">
+                                {report.sent_to_patient ? (
+                                    <span className="inline-flex rounded-full bg-success bg-opacity-10 py-1 px-3 text-sm font-medium text-success">
+                                        Sent
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex rounded-full bg-warning bg-opacity-10 py-1 px-3 text-sm font-medium text-warning">
+                                        Unsent
+                                    </span>
+                                )}
+                            </div>
+
                             <div className="hidden items-center justify-center p-2.5 sm:flex xl:p-5 gap-2">
                                 <button
                                     onClick={() => handleViewReport(report)}
@@ -181,6 +203,15 @@ const RecentReports = () => {
                                 >
                                     Edit
                                 </button>
+                                {!report.sent_to_patient && (
+                                    <button
+                                        onClick={() => handleSendToPatient(report)}
+                                        disabled={sending}
+                                        className="text-primary hover:text-opacity-80 disabled:opacity-50"
+                                    >
+                                        {sending && selectedReport?.id === report.id ? '...' : 'Send'}
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))
@@ -290,13 +321,15 @@ const RecentReports = () => {
                                     >
                                         Edit
                                     </button>
-                                    <button
-                                        onClick={handleSendToPatient}
-                                        disabled={sending}
-                                        className="rounded bg-primary px-4 py-2 text-white hover:bg-opacity-90 disabled:opacity-50"
-                                    >
-                                        {sending ? 'Sending...' : 'Send to Patient'}
-                                    </button>
+                                    {!selectedReport.sent_to_patient && (
+                                        <button
+                                            onClick={() => handleSendToPatient()}
+                                            disabled={sending}
+                                            className="rounded bg-primary px-4 py-2 text-white hover:bg-opacity-90 disabled:opacity-50"
+                                        >
+                                            {sending ? 'Sending...' : 'Send to Patient'}
+                                        </button>
+                                    )}
                                 </>
                             )}
 

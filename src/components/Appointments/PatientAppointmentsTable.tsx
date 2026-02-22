@@ -238,12 +238,26 @@ export default function PatientAppointmentsTable() {
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                                        <button
-                                            className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 flex items-center gap-1"
-                                            onClick={() => initiateCall(app)}
-                                        >
-                                            <span>📹</span> Call
-                                        </button>
+                                        {(() => {
+                                            const appDate = new Date(app.appointment_date);
+                                            const today = new Date();
+                                            today.setHours(0, 0, 0, 0);
+                                            const appDateOnly = new Date(appDate.getFullYear(), appDate.getMonth(), appDate.getDate());
+                                            const isPast = appDateOnly.getTime() < today.getTime();
+                                            const isCompleted = app.status === 'completed';
+
+                                            if (!isPast && !isCompleted) {
+                                                return (
+                                                    <button
+                                                        className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 flex items-center gap-1"
+                                                        onClick={() => initiateCall(app)}
+                                                    >
+                                                        <span>📹</span> Call
+                                                    </button>
+                                                );
+                                            }
+                                            return null;
+                                        })()}
                                     </TableCell>
                                 </TableRow>
                             ))

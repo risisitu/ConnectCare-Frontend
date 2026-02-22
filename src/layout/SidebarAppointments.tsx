@@ -102,6 +102,7 @@ export default function SidebarAppointments({
                 ...(token ? { "Authorization": `Bearer ${token}` } : {}),
               },
               body: JSON.stringify({
+                appointmentId: appointment.id,
                 doctorId: targetId,
                 doctorName: targetName,
                 patientId: user?.id,
@@ -170,12 +171,28 @@ export default function SidebarAppointments({
                       <td className="py-2 text-theme-sm">{doctor}</td>
                       <td className="py-2 text-theme-sm">{status}</td>
                       <td className="py-2 text-theme-sm">
-                        <button
-                          className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 flex items-center gap-1"
-                          onClick={() => initiateCall(a)}
-                        >
-                          <span>📹</span> Call
-                        </button>
+                        {(() => {
+                          const appDateStr = a.appointment_date || a.appointmentDate;
+                          if (!appDateStr) return null;
+                          const appDate = new Date(appDateStr);
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          const appDateOnly = new Date(appDate.getFullYear(), appDate.getMonth(), appDate.getDate());
+                          const isPast = appDateOnly.getTime() < today.getTime();
+                          const isCompleted = a.status === 'completed';
+
+                          if (!isPast && !isCompleted) {
+                            return (
+                              <button
+                                className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 flex items-center gap-1"
+                                onClick={() => initiateCall(a)}
+                              >
+                                <span>📹</span> Call
+                              </button>
+                            );
+                          }
+                          return null;
+                        })()}
                       </td>
                     </tr>
                   );
