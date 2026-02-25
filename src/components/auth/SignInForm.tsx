@@ -10,7 +10,7 @@ import ForgotPasswordModal from "./ForgotPasswordModal";
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
-  const [role, setRole] = useState<"patient" | "doctor">("patient");
+  const [role, setRole] = useState<"patient" | "doctor" | "admin">("patient");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -66,6 +66,14 @@ export default function SignInForm() {
                 >
                   Doctor
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setRole("admin")}
+                  className={`px-3 py-1 text-sm rounded-md transition ${role === "admin" ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white/90 shadow" : "text-gray-600 dark:text-gray-400"
+                    }`}
+                >
+                  Admin
+                </button>
               </div>
             </div>
 
@@ -75,7 +83,8 @@ export default function SignInForm() {
                 setError(null);
                 setLoading(true);
                 try {
-                  const url = `${import.meta.env.VITE_API_URL}/api/${role === "doctor" ? "doctors" : "patients"}/login`;
+                  const rolePath = role === "admin" ? "admin" : role === "doctor" ? "doctors" : "patients";
+                  const url = `${import.meta.env.VITE_API_URL}/api/${rolePath}/login`;
                   const res = await fetch(url, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
