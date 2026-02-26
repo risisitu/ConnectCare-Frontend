@@ -259,19 +259,45 @@ const VideoCall: React.FC<VideoCallProps> = ({ isModal, localUser, targetUser, o
 
             recognition.onerror = (event: any) => {
                 console.error('Speech recognition error', event.error);
-                if (event.error === 'not-allowed') {
+                if (['not-allowed', 'network', 'audio-capture', 'service-not-allowed'].includes(event.error)) {
                     setIsSttEnabled(false);
-                    alert("Microphone access blocked for Speech Recognition.");
+                    isSttEnabledRef.current = false; // Synchronous update to prevent restart in onend
+                    alert(`Speech Recognition Error (${event.error}). This might be due to browser limitations, network issues, or a conflict with the video call microphone. Transcription disabled.`);
                 }
             };
+
+            // Track restart attempts to prevent infinite silent loops
+            let restartCount = 0;
+            let lastRestart = Date.now();
 
             recognition.onend = () => {
                 // Restart if enabled (check Ref for current state)
                 if (isSttEnabledRef.current && recognitionRef.current) {
-                    console.log("Recognition ended, restarting...");
+
+                    const now = Date.now();
+                    if (now - lastRestart < 1000) {
+                        restartCount++;
+                    } else {
+                        restartCount = 0; // Reset if it's been running fine for > 1s
+                    }
+                    lastRestart = now;
+
+                    if (restartCount > 5) {
+                        console.error("Speech recognition ended unexpectedly too many times. Disabling.");
+                        setIsSttEnabled(false);
+                        isSttEnabledRef.current = false;
+                        alert("Live transcription stopped unexpectedly too many times. Disabling to prevent lockup.");
+                        return;
+                    }
+
+                    console.log(`Recognition ended, restarting... (Attempt ${restartCount})`);
                     try {
                         recognitionRef.current.start();
-                    } catch (e) { console.warn("Failed to restart recognition", e); }
+                    } catch (e) {
+                        console.warn("Failed to restart recognition", e);
+                        setIsSttEnabled(false);
+                        isSttEnabledRef.current = false;
+                    }
                 }
             };
 
