@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import DoctorDashboard from "./DoctorDashboard";
 import PatientDashboard from "./PatientDashboard";
+import AdminDashboard from "./AdminDashboard";
 
 export default function Home() {
   const [role, setRole] = useState<string | null>(null);
@@ -23,7 +24,7 @@ export default function Home() {
 
   return (
     <>
-      {role === "doctor" ? <DoctorDashboard /> : <PatientDashboard />}
+      {role === "admin" ? <AdminDashboard /> : role === "doctor" ? <DoctorDashboard /> : <PatientDashboard />}
     </>
   );
 }
